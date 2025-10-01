@@ -18,13 +18,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await Api.dio.post('/auth/register', data: {
-        'username': _user.text.trim(), 'password': _pass.text, 'displayName': _name.text.trim()
+      final res = await Api.dio.post('/auth/enviar', data: {
+        "email": _user.text.trim(),
+        "senha": _pass.text,
+        "nome": _name.text.trim()
       });
-      await TokenStorage.saveToken(res.data['token']);
-      if (!mounted) return; Navigator.pushReplacementNamed(context, '/contacts');
-    } on DioException catch (_) { setState(() { _error = 'Erro ao cadastrar'; }); }
-    finally { if (mounted) setState(() { _loading = false; }); }
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/contacts');
+    } on DioException catch (e) {
+      setState(() {
+        _error = 'Erro: ${e.response?.statusCode} - ${e.response?.data}';
+      });
+    } finally {
+      if (mounted) setState(() { _loading = false; }); }
   }
 
 

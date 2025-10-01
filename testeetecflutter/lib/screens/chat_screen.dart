@@ -91,7 +91,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.contact.displayName ?? widget.contact.username),
+        title: Text(widget.contact.nome),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {

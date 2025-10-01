@@ -21,7 +21,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
   Future<void> _load() async {
     try {
-      final res = await Api.dio.get('/contacts');
+      final res = await Api.dio.get('/auth/listar');
       setState(() {
         users = (res.data as List)
             .map((j) => UserModel.fromJson(j))
@@ -48,8 +48,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
         itemBuilder: (_, i) {
           final u = users[i];
           return ListTile(
-            title: Text(u.displayName ?? u.username),
-            subtitle: Text(u.username),
+            title: Text(u.nome),
+            subtitle: Text(u.email),
             onTap: () => Navigator.pushNamed(
               context,
               '/chat',
