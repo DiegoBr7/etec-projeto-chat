@@ -14,4 +14,14 @@ class UserService {
     Future<void> deletarUsuario(int id) async {
         await Api.dio.delete('/api/auth/$id'); // DELETE certo
     }
+
+    Future<String> login(String email, String senha) async {
+        final response = await Api.dio.post('/api/auth/login', data: {
+            "email": email,
+            "senha": senha,
+        });
+
+        return response.data; // vai retornar "Login bem-sucedido" ou erro
+    }
+
 }

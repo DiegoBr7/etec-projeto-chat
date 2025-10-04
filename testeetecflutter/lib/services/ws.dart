@@ -14,8 +14,12 @@ class WSService {
   }) {
     _client = StompClient(
       config: StompConfig(
-        url: Api.base.replaceFirst('http', 'ws') + '/ws/websocket',
+        // correto: usar /ws, não /ws/websocket
+        url: Api.base.replaceFirst('http', 'ws') + '/ws',
         onConnect: (StompFrame frame) {
+          print("✅ Conectado ao WS");
+
+          // escuta mensagens que chegam para esse usuário
           _client?.subscribe(
             destination: '/user/$userId/queue/messages',
             callback: (frame) {
@@ -25,7 +29,7 @@ class WSService {
             },
           );
         },
-        onWebSocketError: (e) => print('Erro WS: $e'),
+        onWebSocketError: (e) => print('❌ Erro WS: $e'),
         reconnectDelay: const Duration(seconds: 5),
         heartbeatIncoming: const Duration(seconds: 4),
         heartbeatOutgoing: const Duration(seconds: 4),
@@ -33,6 +37,14 @@ class WSService {
     );
 
     _client?.activate();
+  }
+
+  /// Envia mensagem pelo WS
+  void sendMessage(Map<String, dynamic> msg) {
+    _client?.send(
+      destination: "/app/chat",
+      body: json.encode(msg),
+    );
   }
 
   void dispose() {

@@ -4,7 +4,8 @@ import '../model/user.dart';
 import '../services/api.dart';
 
 class ContactsScreen extends StatefulWidget {
-  const ContactsScreen({super.key});
+  final UserModel currentUser;
+  const ContactsScreen({super.key, required this.currentUser});
 
   @override
   State<ContactsScreen> createState() => _ContactsScreenState();
@@ -12,6 +13,8 @@ class ContactsScreen extends StatefulWidget {
 
 class _ContactsScreenState extends State<ContactsScreen> {
   List<UserModel> users = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -26,8 +29,23 @@ class _ContactsScreenState extends State<ContactsScreen> {
         users = (res.data as List)
             .map((j) => UserModel.fromJson(j))
             .toList();
+        _loading = false;
       });
-    } on DioException catch (_) {}
+    } on DioException catch (e) {
+      setState(() {
+        _error = 'Erro ao carregar contatos: ${e.message}';
+        _loading = false;
+      });
+    }
+  }
+
+  void _handleBack() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      // Se não houver tela anterior, redireciona para o login
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override
@@ -37,23 +55,39 @@ class _ContactsScreenState extends State<ContactsScreen> {
         title: const Text('Contatos'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context); // volta para a tela anterior
-          },
+          onPressed: _handleBack,
         ),
       ),
-      body: ListView.separated(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+          : users.isEmpty
+          ? const Center(
+        child: Text(
+          'Nenhum contato encontrado.',
+          style: TextStyle(fontSize: 16),
+        ),
+      )
+          : ListView.separated(
         itemCount: users.length,
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (_, i) {
           final u = users[i];
           return ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.green,
+              child: Icon(Icons.person, color: Colors.white),
+            ),
             title: Text(u.nome),
             subtitle: Text(u.email),
             onTap: () => Navigator.pushNamed(
               context,
               '/chat',
-              arguments: {'contact': u},
+              arguments: {'contact': u,
+                'currentUser': widget.currentUser,
+              },
+
             ),
           );
         },

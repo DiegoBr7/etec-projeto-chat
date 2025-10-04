@@ -1,6 +1,7 @@
 package br.com.spring.chat.service;
 
 import br.com.spring.chat.model.Message;
+import br.com.spring.chat.model.User;
 import br.com.spring.chat.repository.MessageRepository;
 import br.com.spring.chat.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -18,27 +19,44 @@ public class MessageService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * 🔹 Salva uma nova mensagem garantindo que remetente e destinatário existam.
+     */
     public Message salvarMessage(Message message) {
-        // Busca os usuários completos no banco
-        var sender = userRepository.findById(message.getSender().getId())
-                .orElseThrow(() -> new RuntimeException("Sender não encontrado"));
+        User sender = userRepository.findById(message.getSender().getId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Remetente não encontrado: " + message.getSender().getId()));
 
-        var receiver = userRepository.findById(message.getReceiver().getId())
-                .orElseThrow(() -> new RuntimeException("Receiver não encontrado"));
+        User receiver = userRepository.findById(message.getReceiver().getId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Destinatário não encontrado: " + message.getReceiver().getId()));
 
-        // Substitui os objetos parciais pelos completos
         message.setSender(sender);
         message.setReceiver(receiver);
-
         return messageRepository.save(message);
     }
 
+    /**
+     * 🔹 Retorna todas as mensagens do banco (somente para debug ou administração).
+     */
     public List<Message> listarMessages() {
         return messageRepository.findAll();
     }
 
-    public void deletarMessage(Long id) {
-        messageRepository.deleteById(id);
+    /**
+     * 🔹 Retorna apenas as mensagens trocadas entre dois usuários específicos.
+     */
+    public List<Message> buscarChatEntre(Long user1, Long user2) {
+        return messageRepository.findChatBetween(user1, user2);
     }
 
+    /**
+     * 🔹 Deleta uma mensagem pelo ID.
+     */
+    public void deletarMessage(Long id) {
+        if (!messageRepository.existsById(id)) {
+            throw new IllegalArgumentException("Mensagem não encontrada para id: " + id);
+        }
+        messageRepository.deleteById(id);
+    }
 }

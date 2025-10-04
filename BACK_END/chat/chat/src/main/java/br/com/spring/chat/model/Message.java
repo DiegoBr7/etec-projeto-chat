@@ -39,4 +39,6 @@ public class Message {
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private Instant createdAt; // Removido = Instant.now()
+
+
 }

@@ -8,7 +8,13 @@ import '../model/user.dart';
 
 class ChatScreen extends StatefulWidget {
   final UserModel contact;
-  const ChatScreen({super.key, required this.contact});
+  final UserModel currentUser; // 👈 Adicionado
+
+  const ChatScreen({
+    super.key,
+    required this.contact,
+    required this.currentUser,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -16,45 +22,71 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final List<types.Message> _messages = [];
-  types.User? _me; // pode ser nulo até carregar
   final WSService _ws = WSService();
+  types.User? _me;
   int? myId;
 
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    _loadChat();
   }
 
-  Future<void> _bootstrap() async {
+  Future<void> _loadChat() async {
     try {
-      final res = await Api.dio.get('/users/me');
-      myId = res.data['id'];
+      // ✅ Usa o ID do usuário logado
+      myId = widget.currentUser.id;
       _me = types.User(id: '$myId');
 
-      // Conecta ao WebSocket
-      _ws.connect(userId: '$myId', onMessage: (payload) {
-        final incoming = types.TextMessage(
-          id: '${payload['id']}',
-          author: types.User(id: '${payload['senderId']}'),
-          createdAt: DateTime.parse(payload['sentAt']).millisecondsSinceEpoch,
-          text: payload['content'],
+      // 🔹 Busca histórico APENAS entre os dois usuários
+      final history = await Api.dio.get(
+        '/messages/chat',
+        queryParameters: {
+          'user1': myId,
+          'user2': widget.contact.id,
+        },
+      );
+
+      final msgs = (history.data as List).map((m) {
+        return types.TextMessage(
+          id: '${m['id']}',
+          author: types.User(id: '${m['sender']['id']}'),
+          text: m['content'],
+          createdAt:
+          DateTime.parse(m['createdAt']).millisecondsSinceEpoch,
         );
-        setState(() {
-          _messages.insert(0, incoming);
-        });
+      }).toList();
+
+      setState(() {
+        _messages
+          ..clear()
+          ..addAll(msgs.reversed);
       });
 
-      setState(() {}); // força rebuild depois do login
-    } on DioException catch (e) {
-      debugPrint("Erro ao buscar usuário logado: $e");
-    }
-  }
+      // 🔹 Conecta o WebSocket apenas do logado
+      _ws.connect(userId: '$myId', onMessage: (payload) {
+        final senderId = payload['sender']['id'];
+        final receiverId = payload['receiver']['id'];
 
-  @override
-  void dispose() {
-    _ws.dispose();
-    super.dispose();
+        // Exibir só mensagens entre logado e contato atual
+        if ((senderId == widget.contact.id && receiverId == myId) ||
+            (senderId == myId && receiverId == widget.contact.id)) {
+          final incoming = types.TextMessage(
+            id: '${payload['id']}',
+            author: types.User(id: '$senderId'),
+            text: payload['content'],
+            createdAt: DateTime.parse(payload['createdAt'])
+                .millisecondsSinceEpoch,
+          );
+          setState(() {
+            _messages.insert(0, incoming);
+          });
+        }
+      });
+    } on DioException catch (e) {
+      debugPrint(
+          '❌ Erro ao carregar chat: ${e.response?.statusCode} ${e.response?.data}');
+    }
   }
 
   Future<void> _handleSend(types.PartialText m) async {
@@ -72,13 +104,28 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     try {
+      // 🔹 Envia mensagem ao backend
       await Api.dio.post('/messages', data: {
-        'recipientId': widget.contact.id,
         'content': m.text,
+        'sender': {'id': myId},
+        'receiver': {'id': widget.contact.id},
+      });
+
+      // 🔹 Também envia via WebSocket
+      _ws.sendMessage({
+        'content': m.text,
+        'sender': {'id': myId},
+        'receiver': {'id': widget.contact.id},
       });
     } on DioException catch (e) {
-      debugPrint("Erro ao enviar mensagem: $e");
+      debugPrint("❌ Erro ao enviar mensagem: ${e.response?.statusCode}");
     }
+  }
+
+  @override
+  void dispose() {
+    _ws.dispose();
+    super.dispose();
   }
 
   @override
@@ -94,15 +141,13 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Text(widget.contact.nome),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context); // volta para a tela anterior (contatos)
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Chat(
         messages: _messages,
         onSendPressed: _handleSend,
-        user: _me!, // já garantimos que não é null
+        user: _me!,
       ),
     );
   }
